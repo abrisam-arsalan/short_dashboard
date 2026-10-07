@@ -60,6 +60,9 @@ export const TIPE_JOB = [
   "cleanup_storage",
   "isi_slot",
   "ingatkan",
+  "publish_yt",
+  "publish_tt",
+  "cek_jadwal_tayang",
 ] as const;
 export type TipeJob = (typeof TIPE_JOB)[number];
 

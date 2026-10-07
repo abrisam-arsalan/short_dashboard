@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { connection } from "next/server";
+import { PanelTiktokDraft } from "@/components/PanelTiktokDraft";
 
 
 export const instant = false;
@@ -14,6 +15,46 @@ export default async function PengaturanPage() {
         <h1 className="text-2xl font-bold text-white">⚙️ Pengaturan</h1>
         <p className="text-gray-400">Kredensial, retensi, dan konfigurasi global</p>
       </div>
+
+      {/* OAuth YouTube per Kanal */}
+      <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+        <h2 className="text-lg font-bold text-white mb-4">🔗 Koneksi YouTube per Kanal</h2>
+        <div className="space-y-3">
+          {kanals.map((kanal) => {
+            const punyaClient = kanal.kredensial.some(
+              (k) => k.provider === "youtube_oauth" && k.label === "client_id"
+            );
+            const punyaToken = kanal.kredensial.some(
+              (k) => k.provider === "youtube_oauth" && k.label === "refresh_token"
+            );
+            return (
+              <div key={kanal.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-4 py-3">
+                <div>
+                  <span className="text-gray-200 font-medium">{kanal.nama}</span>
+                  <span className="ml-3 text-sm text-gray-500">
+                    {punyaToken ? "🟢 Terhubung" : punyaClient ? "🟡 Siap OAuth" : "🔴 Belum setup"}
+                  </span>
+                </div>
+                {!punyaToken && (
+                  <a
+                    href={`/api/auth/youtube/${kanal.slug}`}
+                    className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
+                  >
+                    Hubungkan YouTube
+                  </a>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-xs text-gray-500 mt-3">
+          Set client_id & client_secret per kanal di tabel Kredensial (provider: youtube_oauth).
+          OAuth perlu redirect URI: <code>/api/auth/youtube/callback</code>
+        </p>
+      </div>
+
+      {/* TikTok Draft Panel (FR-20a) */}
+      <PanelTiktokDraft />
 
       {/* Setelan Global */}
       <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">

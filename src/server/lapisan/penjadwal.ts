@@ -113,3 +113,37 @@ export async function catchUpSlot() {
 
   return { dijadwalkan };
 }
+
+/**
+ * Cek jadwal tayang — enqueue publish job untuk paket yang waktunya sudah tiba.
+ * Dipanggil tiap 2 menit oleh worker.
+ */
+export async function cekJadwalTayang() {
+  const now = new Date();
+  const paketSiapTayang = await db.paketKonten.findMany({
+    where: {
+      status: "terjadwal",
+      terjadwalPada: { lte: now },
+      tayangPada: null,
+    },
+    include: { kanal: true, caption: true, aset: { where: { jenis: "composed" }, take: 1 } },
+    orderBy: { terjadwalPada: "asc" },
+  });
+
+  let dijadwalkan = 0;
+  for (const paket of paketSiapTayang) {
+    // Cek kill switch — jangan upload bila dijeda
+    const { dijeda } = await import("./killswitch");
+    if (await dijeda(paket.kanalId)) continue;
+
+    // Pastikan ada video composed + caption
+    if (paket.aset.length === 0 || !paket.caption) continue;
+
+    // Enqueue publish YouTube (TikTok akan otomatis menyusul setelah YT sukses)
+    const { antre } = await import("@/lib/antre");
+    await antre("publish_yt", { paketId: paket.id }, paket.id);
+    dijadwalkan++;
+  }
+
+  return { dijadwalkan };
+}

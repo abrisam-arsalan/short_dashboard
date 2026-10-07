@@ -24,6 +24,7 @@
     "date-fns": "^4.4.0",
     "date-fns-tz": "^3.2.0",
     "dotenv": "^18.0.6",
+    "googleapis": "^183.0.0",
     "next": "16.4.0",
     "prisma": "^6.19.3",
     "react": "19.3.0",

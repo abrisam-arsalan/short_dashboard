@@ -60,6 +60,24 @@ async function prosesJob(job: { id: string; tipe: string; payload: string; paket
       console.log(`   Slot:`, hasil);
       break;
     }
+    case "publish_yt": {
+      const { handlePublishYt } = await import("@/worker/handlers/publish");
+      await handlePublishYt(payload.paketId as string);
+      break;
+    }
+    case "publish_tt": {
+      const { handlePublishTt } = await import("@/worker/handlers/publish");
+      await handlePublishTt(payload.paketId as string);
+      break;
+    }
+    case "cek_jadwal_tayang": {
+      const { cekJadwalTayang } = await import("@/server/lapisan/penjadwal");
+      const hasil = await cekJadwalTayang();
+      if (hasil.dijadwalkan > 0) {
+        console.log(`   ${hasil.dijadwalkan} paket siap diupload`);
+      }
+      break;
+    }
     default:
       console.warn(`   Tipe job tidak dikenal: ${job.tipe}`);
   }
@@ -85,6 +103,13 @@ async function main() {
 
   // Reschedule isi_slot job jam 04:00 UTC
   await antre("isi_slot", {}, undefined, nextUtcHour(4));
+
+  // Cek jadwal tayang setiap 2 menit (enqueue publish job yang waktunya sudah tiba)
+  setInterval(async () => {
+    try {
+      await antre("cek_jadwal_tayang", {});
+    } catch {}
+  }, 120000);
 
   // Main loop — sequential processing
   console.log(`🔄 Polling setiap ${POLL_INTERVAL / 1000} detik...`);
