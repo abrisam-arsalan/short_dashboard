@@ -1,0 +1,225 @@
+// Skema database TimeLoom — portable SQLite (dev) & PostgreSQL (prod)
+// ATURAN PORTABILITAS:
+//   1. TANPA enum native — semua kolom status bertipe String, divalidasi oleh konstanta TS
+//   2. TANPA Json fields — pakai Text (JSON string) atau tabel anak
+//   3. Hanya @default(now()) / @default(cuid()) / @default(uuid())
+//   4. Dev: `prisma db push` · Prod: `prisma migrate diff` → prisma/migrations_pg/
+
+datasource db {
+  provider = "sqlite" // diganti otomatis: sqlite (dev) / postgresql (prod) via scripts/db-use.mjs
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// === Kanal ===
+// 1 akun Google = 1 kanal (FR-6): merangkap YouTube + Google Flow + project Gemini API + 1 TikTok
+model Kanal {
+  id               String   @id @default(cuid())
+  slug             String   @unique // "sawdustsprint" | "bloomblitz" | "wildlapse"
+  nama             String // "SawdustSprint"
+  handle           String // "@sawdustsprint" (sama untuk YouTube & TikTok)
+  niche            String // "pertukangan" | "gardening" | "camping"
+  modeProduksi     String   @default("flow") // "flow" (andalan) | "auto" (M3)
+  killSwitch       String   @default("ikut_global") // "auto" | "review" | "jeda" | "ikut_global"
+  youtubeChannelId String?
+  tiktokUsername   String?
+
+  profil    ProfilNiche?
+  ide       Ide[]
+  paket     PaketKonten[]
+  aset      AsetVideo[]
+  slot      SlotJadwal[]
+  kredensial Kredensial[]
+  createdAt DateTime   @default(now())
+}
+
+// === Profil Niche (FR-4, FR-15) ===
+// 1:1 dengan Kanal — topik, tone, kata kunci, gaya overlay per kanal
+model ProfilNiche {
+  id           String @id @default(cuid())
+  kanalId      String @unique
+  kanal        Kanal  @relation(fields: [kanalId], references: [id], onDelete: Cascade)
+
+  // Profil niche
+  topik        String // JSON string array: ["woodworking", "DIY furniture", ...]
+  audiens      String // "US/Eropa, English"
+  tone         String // "satisfying, precise, warm"
+  kataKunciEn  String // JSON string array
+  larangan     String // daftar pantangan niche (dienkode positif saat render prompt)
+  spesimenGaya String // frasa gaya yang selalu masuk prompt (FR-4)
+
+  // Gaya overlay per kanal (FR-15)
+  fontFile     String // "fonts/BarlowCondensed-Bold.ttf"
+  fontWeight   String // "bold"
+  warnaTeks    String // "#F2A93B"
+  warnaBox     String // "#1A120BCC"
+  radiusBox    Int    @default(8) // BloomBlitz besar (rounded), WildLapse 0 (stencil)
+  toneHook     String // nada kalimat hook (pendek, tegas, dsb.)
+  contohHook   String // contoh hook overlay
+}
+
+// === Ide (FR-7 s.d. FR-10) ===
+model Ide {
+  id              String   @id @default(cuid())
+  kanalId         String
+  kanal           Kanal    @relation(fields: [kanalId], references: [id], onDelete: Cascade)
+  tanggalIde      DateTime // tanggal batch (UTC) — untuk dedupe harian
+  judulEn         String
+  hookVisual      String // 2 detik pertama
+  transformasi    String // apa berubah jadi apa (inti time-lapse)
+  alasanPotensi   String
+  skor            Int // 1–5
+  status          String   @default("tersedia") // "tersedia" | "dipakai" | "dismiss"
+  feedbackDismiss String? // "jangan sarankan lagi: ..." (FR-10)
+  variasiDari     String? // id ide sukses untuk "variasi dari video sukses X" (FR-9)
+  sumber          String   @default("ai") // "ai" | "manual"
+
+  promptPack PromptPaket?
+  paket      PaketKonten?
+  createdAt  DateTime    @default(now())
+}
+
+// === Prompt Paket (FR-11, FR-12) ===
+// 1 prompt utama + 2 alternatif per ide
+model PromptPaket {
+  id             String  @id @default(cuid())
+  ideId          String  @unique
+  ide            Ide     @relation(fields: [ideId], references: [id], onDelete: Cascade)
+  promptUtama    String // prompt final siap tempel (hasil render deterministik)
+  promptAlt1     String
+  promptAlt2     String
+  struktur       String // JSON: {kamera, gaya, cahaya, lokasi, aksi, audio, hindari} per varian
+  statusValidasi String  @default("menunggu") // "valid" | "peringatan" | "ditolak"
+  detailValidasi String // JSON array temuan validator
+  revisiKe       Int     @default(0)
+
+  paketId String?      @unique
+  paket    PaketKonten? @relation(fields: [paketId], references: [id])
+}
+
+// === Caption Set (FR-16, FR-17) ===
+model CaptionSet {
+  id          String       @id @default(cuid())
+  paketId     String       @unique
+  paket       PaketKonten  @relation(fields: [paketId], references: [id], onDelete: Cascade)
+  ytJudul     String // <= 100 char
+  ytDeskripsi String // 1–2 kalimat + CTA halus
+  ytHashtag   String // JSON array, wajib #Shorts
+  ttTeks      String // <= 150 char, kasual
+  ttHashtag   String // JSON array, TANPA #Shorts
+  versiTayang String? // snapshot final saat tayang (FR-17) — JSON
+  updatedAt   DateTime     @updatedAt
+}
+
+// === Paket Konten (unit produksi utama) ===
+model PaketKonten {
+  id              String   @id @default(cuid())
+  kanalId         String
+  kanal           Kanal    @relation(fields: [kanalId], references: [id], onDelete: Cascade)
+  ideId           String   @unique
+  ide             Ide      @relation(fields: [ideId], references: [id])
+  caption         CaptionSet?
+  promptPaket     PromptPaket?
+  aset            AsetVideo[]
+  job             Job[]
+
+  // Status pipeline (8 + gagal):
+  // antrean_ide | prompt_siap | generating | kotak_masuk_aset | komposisi_overlay |
+  // menunggu_review | terjadwal | tayang | gagal
+  status          String   @default("antrean_ide")
+  slotKe          Int? // 0..4 (indeks slot harian kanal)
+  terjadwalPada   DateTime? // waktu tayang UTC hasil pengisian slot
+  percobaan       Int      @default(0) // retry upload (M2), maks 3 (FR-21)
+  errorTerakhir   String?
+  catatanProduksi String? // varian prompt dipakai, seed, catatan (FR-14)
+  tayangPada      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// === Aset Video (§7.6) ===
+model AsetVideo {
+  id          String       @id @default(cuid())
+  kanalId     String
+  kanal       Kanal        @relation(fields: [kanalId], references: [id], onDelete: Cascade)
+  paketId     String?
+  paket       PaketKonten? @relation(fields: [paketId], references: [id])
+  jenis       String // "raw" | "composed"
+  sumber      String // "flow" | "upload_form" | "watcher" | "api"
+  pathFile    String // relatif terhadap STORAGE_ROOT
+  lebar       Int?
+  tinggi      Int?
+  durasiDetik Float?
+  ukuranByte  Int?
+  createdAt   DateTime     @default(now())
+  dihapusPada  DateTime? // soft-mark oleh cleanup job (retensi 7/30 hari)
+}
+
+// === Slot Jadwal (FR-18) ===
+// 5 slot per kanal — data, bukan kode. Default: 10:00/13:00/17:00/20:00/23:00 UTC + offset per kanal
+model SlotJadwal {
+  id       String  @id @default(cuid())
+  kanalId  String
+  kanal    Kanal   @relation(fields: [kanalId], references: [id], onDelete: Cascade)
+  slotKe   Int // 0..4
+  menitUtc Int // menit sejak tengah malam UTC (mis. 600 = 10:00)
+  aktif    Boolean @default(true)
+
+  @@unique([kanalId, slotKe])
+}
+
+// === Job (antrean persisten — pengganti Redis untuk M1) ===
+model Job {
+  id          String    @id @default(cuid())
+  tipe        String // "generate_ide" | "generate_prompt" | "generate_caption" |
+             // "komposisi_overlay" | "cleanup_storage" | "isi_slot" | "ingatkan"
+  payload     String // JSON
+  status      String    @default("pending") // pending | running | done | failed | dead
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  runAt       DateTime  @default(now())
+  lockedAt    DateTime?
+  lastError   String?
+  paketId     String?
+  paket       PaketKonten? @relation(fields: [paketId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([status, runAt])
+}
+
+// === Kredensial Vault (FR-6) ===
+// AES-256-GCM, key dari ENCRYPTION_KEY env
+model Kredensial {
+  id         String   @id @default(cuid())
+  kanalId    String
+  kanal      Kanal    @relation(fields: [kanalId], references: [id], onDelete: Cascade)
+  provider   String // "gemini" | "youtube_oauth" | "tiktok_oauth"
+  label      String // "api_key_gemini"
+  ciphertext String
+  iv         String
+  tag        String
+  createdAt  DateTime @default(now())
+
+  @@unique([kanalId, provider, label])
+}
+
+// === Setelan Global ===
+model Setelan {
+  key   String @id // "killswitch_global" | "retensi_raw_hari" | "retensi_composed_hari"
+  value String
+}
+
+// === Peringatan (FR-3) ===
+model Peringatan {
+  id        String   @id @default(cuid())
+  kanalId   String?
+  tipe      String // "antrean_kritis" | "gagal_generate" | "gagal_upload" | "disk_penuh" | ...
+  pesan     String
+  dibaca    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
