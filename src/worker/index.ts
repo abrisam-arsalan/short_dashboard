@@ -78,6 +78,16 @@ async function prosesJob(job: { id: string; tipe: string; payload: string; paket
       }
       break;
     }
+    case "generate_video": {
+      const { handleGenerateVideo } = await import("@/worker/handlers/generateVideo");
+      await handleGenerateVideo(payload.paketId as string);
+      break;
+    }
+    case "sync_analytics": {
+      const { handleSyncAnalytics } = await import("@/worker/handlers/analytics");
+      await handleSyncAnalytics();
+      break;
+    }
     default:
       console.warn(`   Tipe job tidak dikenal: ${job.tipe}`);
   }
@@ -103,6 +113,9 @@ async function main() {
 
   // Reschedule isi_slot job jam 04:00 UTC
   await antre("isi_slot", {}, undefined, nextUtcHour(4));
+
+  // Reschedule analytics sync jam 06:00 UTC (48-72h lag — sync pagi untuk data 2-3 hari lalu)
+  await antre("sync_analytics", {}, undefined, nextUtcHour(6));
 
   // Cek jadwal tayang setiap 2 menit (enqueue publish job yang waktunya sudah tiba)
   setInterval(async () => {

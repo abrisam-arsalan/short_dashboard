@@ -101,6 +101,7 @@ export default async function PengaturanPage() {
           <div>Storage: {process.env.STORAGE_ROOT || "./storage"}</div>
           <div>Gemini Mock: {process.env.GEMINI_MOCK === "1" ? "Aktif" : "Nonaktif"}</div>
           <div>Zona Waktu: {process.env.TZ_OPERATOR || "Asia/Jakarta"}</div>
+          <div>Mode Auto Video: {process.env.GEMINI_VIDEO_MODEL || "belum diset"}</div>
         </div>
       </div>
     </div>

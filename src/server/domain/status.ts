@@ -63,6 +63,8 @@ export const TIPE_JOB = [
   "publish_yt",
   "publish_tt",
   "cek_jadwal_tayang",
+  "generate_video",
+  "sync_analytics",
 ] as const;
 export type TipeJob = (typeof TIPE_JOB)[number];
 

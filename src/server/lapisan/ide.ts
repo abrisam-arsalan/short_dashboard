@@ -44,8 +44,9 @@ export async function generateIde(kanalId: string, instruksiVariasi?: string) {
 
   const apiKey = await ambilKredensial(kanalId, "gemini", "api_key_gemini");
 
-  // PLAYBOOK_SLOT — kosong di M1, disuntikkan dari M4
-  const playbookSlot = "// Playbook Niche: belum ada data performa (cold start)";
+  // PLAYBOOK_SLOT — diisi dari M4 (Playbook Niche), kosong di cold start
+  const { ambilPlaybookSlot } = await import("./feedback");
+  const playbookSlot = await ambilPlaybookSlot(kanalId);
 
   const systemPrompt = `You are a viral short-form video idea generator for a fast time-lapse YouTube Shorts + TikTok channel.
 Generate ideas that are visually dramatic, satisfying, and have clear before/after transformations.
