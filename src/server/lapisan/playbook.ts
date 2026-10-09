@@ -97,10 +97,10 @@ export async function generatePlaybook(kanalId: string): Promise<Playbook> {
     if (!v) continue;
     // Extract kata kunci dari transformasi (2-3 kata pertama yang bermakna)
     const kataKunci = extractKunciTransformasi(v.transformasi);
-    const entry = kelompok.get(kunci) ?? { views: [], judul: [] };
+    const entry = kelompok.get(kataKunci) ?? { views: [], judul: [] };
     entry.views.push(v.views);
     entry.judul.push(v.judul);
-    kelompok.set(kunci, entry);
+    kelompok.set(kataKunci, entry);
   }
 
   // Hitung performa per kelompok
