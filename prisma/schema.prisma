@@ -223,3 +223,49 @@ model Peringatan {
   dibaca    Boolean  @default(false)
   createdAt DateTime @default(now())
 }
+
+// === Pustaka Referensi (dari koleksi @sifyik) ===
+
+// 33 Gaya Visual AI Video (Part 1-11)
+model GayaVideo {
+  id        String   @id @default(cuid())
+  nomor     Int      @unique
+  nama      String
+  kategori  String   // "stop_motion" | "3d_render" | "anime" | "illustration" | "retro" | "craft" | "stylized"
+  deskripsi String
+  kataKunci String   // JSON array kata kunci prompt
+  partSumber Int     // part berapa di gambar (1-11)
+  createdAt DateTime @default(now())
+}
+
+// 100 AI Video Prompt Formula (10 kategori × 10 formula)
+model FormulaPrompt {
+  id           String   @id @default(cuid())
+  nomor        Int      @unique
+  nama         String
+  kategori     String   // "cinematic" | "viral" | "brand" | "product" | "food" | "travel" | "fantasy" | "anime" | "comedy" | "dialogue"
+  formulaPrompt String  // formula prompt yang bisa langsung dipakai
+  detailAudio  String
+  partSumber   Int      // part berapa di gambar
+  createdAt    DateTime @default(now())
+}
+
+// 50 Faceless YouTube AI Channel Ideas
+model IdeChannelFaceless {
+  id        String   @id @default(cuid())
+  nomor     Int      @unique
+  nama      String
+  kategori  String
+  deskripsi String
+  createdAt DateTime @default(now())
+}
+
+// Prompt Modifiers (Camera, Lighting, Composition, dll)
+model PengubahPrompt {
+  id        String   @id @default(cuid())
+  kategori  String   // "camera_movement" | "camera_angle" | "motion_action" | "lighting" | "composition" | "camera_effect" | "focus_color" | "color_grading" | "portrait"
+  perintah  String   // mis. "/filmmlook"
+  deskripsi String   // efek yang dihasilkan
+  createdAt DateTime @default(now())
+  @@index([kategori])
+}
