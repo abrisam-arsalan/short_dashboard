@@ -22,6 +22,18 @@
  */
 import type { StatusValidasi } from "@/server/domain/status";
 
+// === Tipe Cut Storyboard untuk validasi (opsional, shape minimal) ===
+interface InputStoryboardCut {
+  urutan: number;
+  detikAwal: number;
+  detikAkhir: number;
+  visual: string;
+  gerakanKamera: string;
+  narasiId: string;
+  teksOverlay?: string | null;
+  labelCut?: string | null;
+}
+
 // === Tipe Hasil Validasi ===
 export interface TemuanValidasi {
   kode: string;
@@ -218,6 +230,58 @@ export function validasiCaption(input: CaptionInput): HasilValidasi {
   const status: StatusValidasi = adaError ? "ditolak" : adaPeringatan ? "peringatan" : "valid";
 
   return { status, temuan };
+}
+
+// === Validator Storyboard ===
+export function validasiStoryboard(cuts: InputStoryboardCut[]): HasilValidasi {
+  const temuan: TemuanValidasi[] = [];
+  const n = cuts.length;
+
+  // 1. N harus 5 (short/10s) atau 8 (detail/20s) — perkirakan dari durasiTotal via last cut
+  const last = cuts[n - 1];
+  const durasiTotal = last ? last.detikAkhir : 0;
+  const expectedN = durasiTotal === 10 ? 5 : durasiTotal === 20 ? 8 : n;
+  if (n !== 5 && n !== 8) {
+    temuan.push({ kode: "CUT_N_SALAH", pesan: `Jumlah cut ${n} harus 5 (10s) atau 8 (20s)`, level: "error" });
+  }
+  if (n !== expectedN) {
+    temuan.push({ kode: "CUT_DURASI_MISMATCH", pesan: `Durasi ${durasiTotal}s mengisyaratkan ${expectedN} cut, sisa N=${n}`, level: "error" });
+  }
+
+  // 2. Timeline kontigu tanpa celah/tumpang-tindih
+  for (let i = 0; i < n; i++) {
+    const c = cuts[i];
+    if (i === 0 && c.detikAwal !== 0) temuan.push({ kode: "TIMELINE_AWAL", pesan: `Cut #${c.urutan} detikAwal harus 0, diisi ${c.detikAwal}`, level: "error" });
+    if (i > 0 && c.detikAwal !== cuts[i - 1].detikAkhir)
+      temuan.push({ kode: "TIMELINE_CELAH", pesan: `Cut #${cuts[i - 1].urutan} akhir=${cuts[i - 1].detikAkhir} ≠ cut #${c.urutan} awal=${c.detikAwal}`, level: "error" });
+    if (c.detikAwal >= c.detikAkhir) temuan.push({ kode: "DURASI_NEGATIF", pesan: `Cut #${c.urutan} durasi 0 (awal=${c.detikAwal} akhir=${c.detikAkhir})`, level: "error" });
+    if (c.urutan !== i + 1) temuan.push({ kode: "URUTAN_SALAH", pesan: `Cut urutan mismatch: index ${i} vs urutan=${c.urutan}`, level: "peringatan" });
+    // 3. Visual wajib non-kosong
+    if (!c.visual || c.visual.trim().length < 10)
+      temuan.push({ kode: "VISUAL_TIPIS", pesan: `Cut #${c.urutan} instruksi visual terlalu singkat/kosong`, level: "error" });
+    // 4. gerakanKamera harus slash-prefix (assigned dari PengubahPrompt)
+    if (!c.gerakanKamera || !c.gerakanKamera.startsWith("/"))
+      temuan.push({ kode: "GERAKAN_KOSONG", pesan: `Cut #${c.urutan} gerakanKamera tidak valid: "${c.gerakanKamera}"`, level: "peringatan" });
+    // 5. narasiId Bahasa Indonesia, panjang 6-14 kata
+    const kt = c.narasiId ? c.narasiId.trim().split(/\s+/).filter(Boolean).length : 0;
+    if (kt === 0) temuan.push({ kode: "NARASI_KOSONG", pesan: `Cut #${c.urutan} narasi kosong`, level: "error" });
+    else if (kt < 4) temuan.push({ kode: "NARASI_TERLALU_PENDEK", pesan: `Cut #${c.urutan} hanya ${kt} kata (ideal 6-14)`, level: "peringatan" });
+    else if (kt > 16) temuan.push({ kode: "NARASI_PANJANG", pesan: `Cut #${c.urutan} ${kt} kata melebihi alokasi ~${c.detikAkhir - c.detikAwal}s`, level: "peringatan" });
+    // Heuristik ID: harus ada kata Indonesia umum (salah satu cukup)
+    const indHeur = /^(a(ku|da)?|ini|itu|yang|dari|dengan|untuk|bisa|lebih|jaga|kulit|coba|yuk|[bp]uat|[bd]uat)$/i;
+    if (c.narasiId && !c.narasiId.split(/\s+/).some((w) => indHeur.test(w)))
+      temuan.push({ kode: "NARASI_BUKAN_ID", pesan: `Cut #${c.urutan} narasi terdeteksi bukan Indonesia`, level: "peringatan" });
+  }
+
+  const adaError = temuan.some((t) => t.level === "error");
+  const adaPeringatan = temuan.some((t) => t.level === "peringatan");
+  const status: StatusValidasi = adaError ? "ditolak" : adaPeringatan ? "peringatan" : "valid";
+  return { status, temuan };
+}
+
+/** Shorthand: validasi satu cutPrompt via validasiPrompt dengan hint. */
+export function validasiCutPrompt(teksPrompt: string): HasilValidasi {
+  return validasiPrompt(teksPrompt);
 }
 
 // === Validator Video (post-download) ===

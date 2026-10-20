@@ -38,8 +38,14 @@ export default async function IdePage() {
                   <p className="text-sm text-gray-400 mt-1">{ide.transformasi}</p>
                   <div className="flex gap-2 mt-3">
                     <a
+                      href={`/storyboard/${ide.id}`}
+                      className="text-xs bg-gray-700 hover:bg-gray-600 text-white px-2.5 py-1 rounded"
+                    >
+                      🎬 Storyboard
+                    </a>
+                    <a
                       href={`/api/ide/${ide.id}`}
-                      className="text-xs text-blue-400 hover:text-blue-300"
+                      className="text-xs text-blue-400 hover:text-blue-300 px-2 py-1"
                     >
                       Detail →
                     </a>

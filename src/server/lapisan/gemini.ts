@@ -4,7 +4,7 @@
  */
 import { GoogleGenAI } from "@google/genai";
 
-export type TipeGenerate = "ide" | "prompt" | "caption";
+export type TipeGenerate = "ide" | "prompt" | "caption" | "storyboard";
 
 // === Mock Fixtures ===
 const MOCK_IDE = {
@@ -100,6 +100,20 @@ const MOCK_PROMPT = {
   },
 };
 
+export const MOCK_STORYBOARD: { cuts: Array<{ labelCut: string; visual: string; gerakanKamera: string; teksOverlay: string; narasiId: string; nadaTag: string; fungsiCatatan: string }> } = {
+  cuts: [
+    { labelCut: "HOOK", visual: "Close-up wajah cantik memegang produk Garnier Micellar Water, latar terang estetik", gerakanKamera: "/tightframe", teksOverlay: 'EH, LIHAT INI!', narasiId: "Eh, lihat ini! Micellar water favorit banyak orang!", nadaTag: "penasaran", fungsiCatatan: "HOOK menarik perhatian" },
+    { labelCut: "HIGHLIGHT", visual: "Tetesan cairan micellar dituang ke kapas putih, tekstur bening ringan tertangkap macro", gerakanKamera: "/allclear", teksOverlay: "Teksturnya ringan!", narasiId: "Lihat teksturnya, cair banget, lembut di kulit!", nadaTag: "percaya-diri", fungsiCatatan: "PRODUCT HIGHLIGHT" },
+    { labelCut: "BENEFIT", visual: "Mengusap kapas ke wajah, makeup terangkat bersih, tiga ikon manfaat muncul", gerakanKamera: "/closecrop", teksOverlay: "Bersih Maksimal Tanpa Ribet", narasiId: "Bisa angkat makeup, bersihkan kotoran, sekaligus menyegarkan kulit!", nadaTag: "lembut", fungsiCatatan: "BENEFIT" },
+    { labelCut: "DESIRE", visual: "Model tersenyum segar, produk di meja rias estetik dengan kapas bekas estetik", gerakanKamera: "/pullback", teksOverlay: "Kulit bersih setiap hari jadi lebih percaya diri!", narasiId: "Kulit terasa lebih bersih, segar, dan siap beraktivitas seharian!", nadaTag: "hangat", fungsiCatatan: "DESIRE membangun keinginan" },
+    { labelCut: "CTA", visual: "Hero shot produk di tangan model, mengarah ke kamera, checklist USP muncul", gerakanKamera: "/filmlook", teksOverlay: "YUK, COBAIN SEKARANG!", narasiId: "Yuk, cobain Garnier Micellar Water all-in-1 sekarang juga!", nadaTag: "persuasif", fungsiCatatan: "CALL TO ACTION" },
+    // Extra fills untuk preset 8-cut (akan di-clamp kalau preset 'short')
+    { labelCut: "DETAIL", visual: "Detail tutup pump dan botol dari dekat, kilau plastik premium", gerakanKamera: "/glidecam", teksOverlay: "Detail kemasan premium", narasiId: "Detail kemasan premium, tutup rapat dan mudah dibawa!", nadaTag: "persuasif", fungsiCatatan: "PRODUCT DETAIL (8-cut only)" },
+    { labelCut: "MACRO", visual: "Macro tetesan essence jatuh ke telapak tangan, slow-mo", gerakanKamera: "/extremeclose", teksOverlay: "Ringan, cepat meresap", narasiId: "Teksturnya ringan, cepat meresap, dan tidak lengket!", nadaTag: "intim", fungsiCatatan: "MACRO DETAIL (8-cut only)" },
+    { labelCut: "SOCIAL", visual: "Testimonial singkat: teman model memuji kulit, cut cepat berganti", gerakanKamera: "/followshot", teksOverlay: "Kulit terlihat lebih cerah!", narasiId: "Temanku bilang kulitku lebih cerah setelah seminggu!", nadaTag: "antusias", fungsiCatatan: "SOCIAL PROOF (8-cut only)" },
+  ],
+};
+
 const MOCK_CAPTION = {
   ytJudul: "Raw Plank to Floating Shelf in 8 Seconds ⚡",
   ytDeskripsi:
@@ -162,6 +176,8 @@ function getMockFixture(tipe: TipeGenerate): unknown {
       return MOCK_PROMPT;
     case "caption":
       return MOCK_CAPTION;
+    case "storyboard":
+      return MOCK_STORYBOARD;
     default:
       throw new Error(`Tipe mock tidak dikenal: ${tipe}`);
   }

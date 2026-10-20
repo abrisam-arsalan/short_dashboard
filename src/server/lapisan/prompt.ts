@@ -138,6 +138,51 @@ export function renderSemuaVarian(varian: VarianPrompt, durasiDetik?: number): {
   };
 }
 
+// === Render Per Cut (Storyboard) ===
+/**
+ * Bangun ElemenPrompt untuk satu StoryboardCut.
+ * - kamera  ← gerakanKamera label cut (+ resolve perintah via PengubahPrompt)
+ * - aksi    ← visual cut
+ * - audio   ← narasiId cut (untuk prompt Omni Flash)
+ * - teksOverlay per cut diselipkan sebagai hindariTerenkripsi? (tidak, hanya audio)
+ */
+export interface StoryboardCutInput {
+  visual: string;
+  gerakanKamera: string; // "/filmlook" dsb — disimpan plaintext
+  narasiId: string;
+  nadaTag?: string | null;
+  teksOverlay?: string | null;
+}
+
+export function renderCutPrompt(
+  cut: StoryboardCutInput,
+  // Slice kategori gerakan dari string "/filmlook" -> perlu nama deskripsi ("movie still quality")
+  // Supply oleh lapisan atas (storyboard.ts); bila tidak, fall back ke label mentah.
+  gerakanDeskripsi?: string,
+): { teksPrompt: string; elemen: ElemenPrompt } {
+  const kamera = gerakanDeskripsi
+    ? `Camera: ${gerakanDeskripsi} (${cut.gerakanKamera})`
+    : `Camera: ${cut.gerakanKamera}`;
+
+  const audio = cut.nadaTag
+    ? `${cut.narasiId} — spoken ${cut.nadaTag} tone, warm and natural.`
+    : cut.narasiId;
+
+  const elemen: ElemenPrompt = {
+    kamera,
+    gaya: "Cinematic, crisp detail, product hero lighting, premium commercial grade.",
+    cahaya: "Natural studio light, soft fill, gentle contrast.",
+    lokasi: "Clean background, uncluttered, focus remains on the subject.",
+    aksi: cut.visual,
+    audio,
+    hindariTerenkripsi: cut.teksOverlay
+      ? [`Burn-in on-screen text supported as overlay (not part of base AI prompt): "${cut.teksOverlay}" `]
+      : [],
+  };
+
+  return { teksPrompt: renderPrompt(elemen), elemen };
+}
+
 // === Contoh Penuh (untuk testing & referensi) ===
 export const CONTOH_ELEMEN: ElemenPrompt = {
   kamera:

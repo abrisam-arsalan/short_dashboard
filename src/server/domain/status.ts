@@ -51,6 +51,23 @@ export type JenisAset = (typeof JENIS_ASET)[number];
 export const SUMBER_ASET = ["flow", "upload_form", "watcher", "api"] as const;
 export type SumberAset = (typeof SUMBER_ASET)[number];
 
+// === Durasi + Preset Storyboard ===
+export const STORYBOARD_DURASI = [10, 20] as const;
+export type StoryboardDurasi = (typeof STORYBOARD_DURASI)[number];
+export const STORYBOARD_PRESET = ["short", "detail"] as const;
+export type StoryboardPreset = (typeof STORYBOARD_PRESET)[number];
+export const STATUS_STORYBOARD = ["draft", "valid", "ditolak"] as const;
+export type StatusStoryboard = (typeof STATUS_STORYBOARD)[number];
+export const SLOT_CUT_PROMPT = ["utama", "alt1", "alt2"] as const;
+export type SlotCutPrompt = (typeof SLOT_CUT_PROMPT)[number];
+export function jumlahCut(preset: StoryboardPreset): number {
+  return preset === "short" ? 5 : 8;
+}
+export function detikPerCut(durasiTotal: StoryboardDurasi, preset: StoryboardPreset): number {
+  const n = jumlahCut(preset);
+  return durasiTotal / n;
+}
+
 // === Tipe Job (antrean) ===
 export const TIPE_JOB = [
   "generate_ide",

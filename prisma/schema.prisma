@@ -79,6 +79,8 @@ model Ide {
 
   promptPack PromptPaket?
   paket      PaketKonten?
+  storyboard Storyboard?
+  cutPrompts CutPrompt[]
   createdAt  DateTime    @default(now())
 }
 
@@ -258,6 +260,58 @@ model IdeChannelFaceless {
   kategori  String
   deskripsi String
   createdAt DateTime @default(now())
+}
+
+// === Storyboard (baru — alur sebelum Prompt Flow) ===
+// Default durasiTotal=10, preset "short"=5 cut, "detail"=8 cut, 10|20 detik
+model Storyboard {
+  id              String          @id @default(cuid())
+  ideId           String          @unique
+  ide             Ide             @relation(fields: [ideId], references: [id], onDelete: Cascade)
+  durasiTotal     Int             // 10 | 20
+  presetCut       String          // "short" (5) | "detail" (8)
+  status          String          @default("draft") // "draft"|"valid"|"ditolak"
+  detailValidasi  String          @default("[]")     // JSON array TemuanValidasi
+  cuts            StoryboardCut[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+model StoryboardCut {
+  id              String     @id @default(cuid())
+  storyboardId    String
+  storyboard      Storyboard @relation(fields: [storyboardId], references: [id], onDelete: Cascade)
+  urutan          Int        // 1..5 | 1..8
+  labelCut        String?    // HOOK|DETAIL|BENEFIT|DESIRE|CTA
+  detikAwal       Int        // detik absolut start (kontigu: 0,2,4... untuk 10s/5, atau 0,2.5,... untuk 20s/8)
+  detikAkhir      Int        // eksklusif
+  visual          String
+  gerakanKamera   String     // "/filmlook" style -> resolved di prompt.ts
+  teksOverlay     String?    // on-screen text per cut (kųjų kosong -> fallback hook global)
+  narasiId        String     // Bahasa Indonesia 6-14 kata
+  nadaTag         String?    // penasaran|percaya-diri|lembut|persuasif|urgent ...
+  fungsiCatatan   String?    // catatan fungsi cut
+  cutPrompts      CutPrompt[]
+
+  createdAt DateTime @default(now())
+  @@unique([storyboardId, urutan])
+  @@index([storyboardId])
+}
+
+model CutPrompt {
+  id              String        @id @default(cuid())
+  ideId           String
+  ide             Ide           @relation(fields: [ideId], references: [id], onDelete: Cascade)
+  storyboardCutId String        @unique
+  storyboardCut   StoryboardCut @relation(fields: [storyboardCutId], references: [id], onDelete: Cascade)
+  slot            String        // "utama"|"alt1"|"alt2"
+  teksPrompt      String        // renderPrompt() per cut
+  struktur        String        // JSON ElemenPrompt
+  statusValidasi  String        @default("menunggu")
+  detailValidasi  String        @default("[]") // JSON temuan
+  createdAt DateTime @default(now())
+
+  @@index([ideId])
 }
 
 // Prompt Modifiers (Camera, Lighting, Composition, dll)
